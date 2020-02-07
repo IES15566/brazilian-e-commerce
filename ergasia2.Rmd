@@ -1,0 +1,128 @@
+---
+title: "R Notebook for EMOS. Case study:Brazilian Ecommerce"
+output: html_notebook
+---
+library(plyr)
+library(tidyverse)
+library(ggplot2)
+library(dplyr)
+library(lubridate)
+---
+
+1Ερώτηση:Να γράψετε κώδικα που να βρίσκει από πόσοι πελάτες της επιχείρησης έχουν δηλώσει τοποθεσία το Ρίο ντε Τζανέιρο
+```{r}
+customers%>%filter(customer_city=="rio de janeiro")%>%tally()
+```
+
+2Ερώτηση:Να βρείτε το όνομα του πελάτη που πραγματοποίησε σε μία παραγγελία την αγορά των περισσότερων προϊόντων
+```{r}
+customers%>%filter(customer_id)%>%
+  full_join(order_items)%>%
+  summarise(s=max(order_items_id,na.rm = TRUE))%>%
+  arrange(s)
+```
+
+3Ερώτηση:Να υπολογίσετε το συνολικό κόστος (αγορα+μεταφορικά) των προϊόντων που αγοράστηκαν από το Sao Paolo
+```{r}
+customers%>%
+  filter(customer_city=="Sao Paolo")%>%
+  full_join(orders)%>%
+  filter(order_status=="delivered")%>%
+  full_join(order_items)%>%
+  summarize(s=sum(price+freight_value))
+```
+
+4Ερώτηση:Να βρείτε τον τρόπο/τρόπους πληρωμής του πελάτη από το Ρίο ντε Τζανέιριο που είχε τις μεγαλύτερες από πλευράς κόστους αγορές
+```{r}
+customers%>%
+  filter(customer_city=="rio de janeiro")%>%
+  full_join(orders)%>%
+  full_join(order_payments)%>%
+  group_by(order_id,payment_type)%>%
+  summarise(s=sum(payment_value,na.rm = TRUE))%>%
+  arrange(desc(s))
+```
+
+5Ερώτηση:Να βρείτε σε ποια ημερομηνία πραγματοποιήθηκαν οι περισσότερες αγορές σε μία μέρα
+```{r}
+orders$order_purchase_timestamp=ymd_hms
+orders%>%
+  full_join(order_payments)%>%
+  group_by(order_id)%>%
+  tally()%>%
+  arrange(desc(n))
+```
+
+6Ερώτηση:Να βρείτε σε ποιον μήνα πραγματοποιήθηκε η μεγαλύτερη εισροή εσόδων για την επιχείρηση
+```{r}
+orders$order_purchase_timestamp=ymd_hms(orders$order_approved_at)
+orders%>%
+mutate(y=year(order_approved_at),m=month(order_approved_at),d=day(order_approved_at))%>%
+  filter(order_status=="delivered")%>%
+  inner_join(order_items)%>%group_by(m)%>%summarize(s=sum(price))%>%arrange(desc(s))
+```
+
+7Ερώτηση:Να εμφανίσετε την κατηγορία προϊόντος για κάθε ένα από τα προϊόντα που δεν παραδόθηκαν και που δεν απεστάλθηκαν
+```{r}
+orders%>%filter(order_status=="canceled")%>%
+  full_join(order_items)%>%
+  full_join(products)%>%
+  select(product_category_name)
+```
+
+8Ερώτηση: Ποια ήταν η πόλη του πιο δημοφιλούς(αριθμός πωλήσεων) seller;
+```{r}
+order_items%>%
+  inner_join(sellers)%>%
+  group_by(seller_city)%>%
+  tally()%>%arrange(desc(n))
+```
+
+9Ερώτηση:Να βρείτε τα δύο προϊόντα με τις μεγαλύτερες σε πλήθος πωλήσεις που είχαν περισσότερες από 3 φωτογραφίες στην περιγραφή τους
+```{r}
+products%>%
+  filter(product_photos_qty>3)%>%
+  inner_join(order_items)%>%
+  group_by(seller_id)%>%
+  summarize(s=sum(order_item_id))%>%
+  slice(1:2)
+  
+```
+
+10Ερώτηση:Να βρείτε την κατηγορία προϊόντων που είχε τον καλύτερο μέσο όρο αξιολογήσεων
+```{r}
+products%>%
+  inner_join(order_items)%>%
+  inner_join(orders)%>%
+  inner_join(order_reviews)%>%
+  group_by(product_category_name)%>%
+  summarise(m=mean(review_score,na.rm = TRUE))%>%
+  arrange(desc(m))
+```
+
+11Ερώτηση: Να υπολογίσετε το εβδομαδιαίο έσοδο αγορών της κατηγορίας esporte_lazer για τους Καλοκαιρινούς μήνες 
+```{r}
+product_category_name_translation%>%
+  filter(product_category_name=esporte_lazer)
+  orders$order_purchase_timestamp=ymd_hms(orders$order_approved_at)
+  orders%>%
+  mutate(y=year(order_approved_at),m=month(order_approved_at),d=day(o   rder_approved_at))%>%
+  filter(m==06:08 , d(1:7))%>%
+  group_by(order_id)%>%
+  group_by(d)%>%
+  tally()%>%
+  arrange(desc(n))
+```
+
+12Ερώτηση:Να βρείτε σε ποια κατηγορία προϊόντος αγοράζουν περισσότερο με την χρήση του τρόπου boleto στην περιοχή MG
+```{r}
+products%>%
+  full_join(geolocation)%>%
+  filter(geolocation_state=="MG")%>%
+  full_join(order_payments)%>%
+  filter(payment_type=="boleto")%>%
+  group_by(product_category_name)%>%
+  
+```
+
+
